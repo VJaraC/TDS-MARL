@@ -31,3 +31,10 @@ variabilidad_planes_*.txt
 APDescription.txt
 MTPs-Main-Container.txt
 .DS_Store
+
+# Maven
+target/
+
+# IntelliJ
+.idea/
+*.iml
