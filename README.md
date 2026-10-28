@@ -10,11 +10,29 @@ y regeneración completa.
 - JDK 8 o superior (con `javac`)
 - Maven 3
 
-En Ubuntu/Debian:
+**Ubuntu/Debian:**
 
 ```bash
 sudo apt install openjdk-21-jdk maven
 ```
+
+**Windows:**
+
+1. Instalar un JDK (por ejemplo [Temurin](https://adoptium.net/)) y marcar la
+   opción que agrega Java al `PATH` y define `JAVA_HOME`.
+2. Instalar Maven: descargar el zip desde <https://maven.apache.org/download.cgi>,
+   descomprimirlo (por ejemplo en `C:\maven`) y agregar `C:\maven\bin` al `PATH`.
+   Con [winget](https://learn.microsoft.com/windows/package-manager/winget/):
+   `winget install EclipseAdoptium.Temurin.21.JDK` y `winget install Apache.Maven`.
+3. Abrir una terminal nueva (PowerShell o CMD) y comprobar:
+
+```powershell
+java -version
+javac -version
+mvn -version
+```
+
+**macOS:** `brew install openjdk maven`.
 
 No hay que descargar librerías a mano: JADE 4.6.0 viene en `lib/jade.jar` y
 `jgrapht` lo descarga Maven.
@@ -28,9 +46,9 @@ mvn compile
 mvn exec:java
 ```
 
+Los comandos son los mismos en Linux, macOS y Windows (PowerShell o CMD).
 Ejecutar siempre **desde la raíz del repo**: el programa busca ahí los `.owl` y
 `planes_iniciales/`. Se abre la ventana del simulador.
-
 En IntelliJ: *File → Open* sobre la carpeta y aceptar *Import Maven project*.
 
 ## Escenarios
