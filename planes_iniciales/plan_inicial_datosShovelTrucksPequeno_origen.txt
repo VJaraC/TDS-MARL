@@ -1,0 +1,6 @@
+Plan inicial unico
+Tomado de la corrida: pequeno_R1_NINGUNO (negociacion_completa)
+Guardado: 2026-10-15 14:46
+  348 operaciones, 87 ciclos, 13 camiones con plan
+  toneladas planificadas en 6 h: 25452
+  ultima tarea termina a las 6:32:50

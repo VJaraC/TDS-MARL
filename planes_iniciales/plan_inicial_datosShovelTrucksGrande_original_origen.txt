@@ -1,0 +1,6 @@
+Plan inicial unico
+Tomado de la corrida: grande_V7_COMPLETE_v2 (plan inicial (negociacion_completa))
+Guardado: 2026-10-14 17:42
+  2212 operaciones, 553 ciclos, 91 camiones con plan
+  toneladas planificadas en 6 h: 159288
+  ultima tarea termina a las 6:34:3

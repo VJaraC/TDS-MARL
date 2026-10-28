@@ -1,0 +1,33 @@
+/bin/
+corridas/
+datosShovelTrucksGrande_originalSinRLmessages.csv
+
+# Entregas al profesor (resultados, no código)
+entrega_*/
+comparativa_metodos.html
+generar_informe_docx.py
+notas_informe.md
+
+# Salidas generadas por las corridas
+snapshots/
+*SinRLmessages.csv
+*SinRLnegotiations.csv
+*SinRLschedules.csv
+auditoria_simulacion_*.csv
+cascadas.csv
+evidencia_cascadas.csv
+estabilidad.csv
+kpis_corridas.csv
+liberaciones.csv
+regeneraciones.csv
+solapes_pala.csv
+tonelaje_acumulado.csv
+utilizacion_palas.csv
+verificacion_partial_repair.csv
+variabilidad_planes_*.txt
+
+# Backups, logs de JADE y basura del sistema
+*.owl.bak
+APDescription.txt
+MTPs-Main-Container.txt
+.DS_Store

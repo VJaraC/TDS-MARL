@@ -1,0 +1,6 @@
+Plan inicial unico
+Tomado de la corrida: mediano_R1_NINGUNO (negociacion_completa)
+Guardado: 2026-10-15 12:01
+  1120 operaciones, 280 ciclos, 43 camiones con plan
+  toneladas planificadas en 6 h: 80767
+  ultima tarea termina a las 6:33:17

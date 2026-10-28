@@ -1,0 +1,43 @@
+si todos los camiones envian refuse (es decir no envian propuesta por que están ocupados a la hora ofertada por la pala), 
+tambien se debería enviar la hora en que estará desocupado. La pala aumenta en X segundos su proxima oferta, pero de nuevo recibe solo refuses. 
+lo anterior hace que hayan ofertas de hora de carga innecesarias. Si todos los camiones no pueden, la pala debería ofertar el proximo siguiente horario en 
+que un camión está disponible. 
+
+cuando entra una mensaje de request, el camion revisa su agenda, pero puede pasar que llegue otro request y tambien empieza a revisar su agenda. 
+revisar si jade cuando recibe dos mensajes, los procesas secuancialmente o no
+
+
+[current] agregar confirmacion
+¿debo colocar deadline para la confirmacion?
+cuando el camion envia disconfirm, es por que esta esperando otra negociacion. el shovel que recibe el disconfirm lo deja en una lista negra. 
+Si el truck pierde la negociacion que estaba esperando, se queda sin nada, y el shovel tambien pierde porque era su preferido.
+una mejora sería que si el truck pierde la negociacion que estaba esperando, envié un aviso al shovel al cual envio disconfirm para que lo saque de la lista negra, siempre y cuando siga el shovel negociando la misma hora de carga. Ojo, podrian haber varios slots que se solapan
+
+
+
+
+[ok] cuando llega request a camion, este debe revisar si ya esta ocupado. Si está ocupado responder con DISCONFIRM. Si no está ocupado, ver si hay un CFP mas conveniente. Si no lo hay, responder CONFIRM. Si hay uno mas conveniente, pero el idle time de la pala es muy alto, responder CONFIRM
+
+[ok] camion debe almacenar CFPs
+[ok] camion debe chequear el cumplimiento de los deadlines de los CFPs
+[ok] camion NO debe responder inmediatamente CFPs. Debe responder CFP's cuando se vaya a cumplir el deadline de un CFPs
+[ok] pala debe enviar su idle time para que camiones puedan decidir si confirman o no.
+[ok] pala debe enviar REQUESTCONFIRMATION message
+cuando pala recibe CONFIRM de parte de camion, recien termina la negociacion. Si no recibe confirm o recibe disconfirm se finaliza la negociacion (no busca otra propuesta recibida, debe reiniciar la negociacion)
+camion debe remover CFP cuando termine la negoacion (exito o fracaso)
+
+
+[resuelto] cuando camion genera respuesta a CFP y despues recibe accept, el camion envia cancel por que ya esta ocupado el slot. 
+          la pala reinicia con el mismo hora de oferta y el mismo cambio vuele a proponer lo mismo que canceló en la negociacion anterior. 
+          la pala vuelve a seleccionarlo y el camion vuelve a enviar cancel y se queda en un loop todo el rato. 
+
+[pending] hay que determinar bien la finalización de una negociacion. Es un poco confusa.
+la finalizacion se da por:	shovel recibe INFORM en respuesta a un accept enviado por el shovel
+							shovel recibe CANCEL en respuesta a un accept enviado por el shovel
+							shovel recibe todas las respuestas pero ningun PROPOSE  deadline
+							shovel cumple deadline y no hay propuestas.
+
+[done] grabar schedules
+
+[para chequeos]
+** =SI(D3>=E2;"ok";"fallo") solapamientos en schedules.csv
