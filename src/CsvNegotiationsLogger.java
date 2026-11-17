@@ -14,7 +14,7 @@ public class CsvNegotiationsLogger {
     private static PrintWriter writer;
 
     // Cabecera para el CSV (opcionales).
-    private static final String HEADER = "timestamp,agent,inicioNegociacion,finNegociacion,conversationId,content, duracion, ganador, refusesRecibidas, proposesRecibidas, informRecibidos, cancelRecibidos";
+    private static final String HEADER = "timestamp,agent,inicioNegociacion,finNegociacion,conversationId,content, duracion, ganador, refusesRecibidas, proposesRecibidas, informRecibidos, cancelRecibidos, t_sim_ms";
 
     // Se ejecuta una vez al cargar la clase
     static {
@@ -58,7 +58,10 @@ public class CsvNegotiationsLogger {
         		Integer.toString(data.numProposes) ,
         		Integer.toString(data.numRefuses),
         		Integer.toString(data.numInforms), 
-        		Integer.toString(data.numCancels)
+        		Integer.toString(data.numCancels),
+        		// Hora simulada al escribir la fila; -1 mientras el reloj no ha arrancado (vale 0).
+        		Long.toString(VentanaSimulacion.tiempoSimulacionGlobalMs > 0
+        				? VentanaSimulacion.tiempoSimulacionGlobalMs : -1L)
         		);
 
         writer.println(line);
