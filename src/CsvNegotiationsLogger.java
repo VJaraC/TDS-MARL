@@ -14,7 +14,7 @@ public class CsvNegotiationsLogger {
     private static PrintWriter writer;
 
     // Cabecera para el CSV (opcionales).
-    private static final String HEADER = "timestamp,agent,inicioNegociacion,finNegociacion,conversationId,content, duracion, ganador, refusesRecibidas, proposesRecibidas, informRecibidos, cancelRecibidos, t_sim_ms";
+    private static final String HEADER = "timestamp,agent,inicioNegociacion,finNegociacion,conversationId,content, duracion, ganador, proposesRecibidas, refusesRecibidas, informRecibidos, cancelRecibidos, t_sim_ms";
 
     // Se ejecuta una vez al cargar la clase
     static {

@@ -88,6 +88,7 @@ public class VentanaSimulacion extends JFrame {
     private boolean planFijoListoImpreso = false;
     private long    tRealPalasCompletas = 0L;
     private boolean avisoCopias         = false;
+    private long    tRealFinDetectado   = 0L;   // fin de la negociacion detectado (CierrePlanInicial)
     private long ultimaVersionEventos = -1; // recalcular también si cambian los eventos
 
     public VentanaSimulacion(Graph<Vertice, DefaultWeightedEdge> grafo) {
@@ -449,6 +450,9 @@ public class VentanaSimulacion extends JFrame {
         boolean porPalas = ShovelAgent.negociacionInicialCompleta();
         boolean porRespaldo = (ahora - tRealPrimerSlot)
                 >= ParametrosSimulador.TOPE_NEGOCIACION_INICIAL_MS;
+        // Instante (reloj de pared) en que se detecto el fin de la negociacion,
+        // antes de esperar las copias. Solo se registra (espera_copias_ms).
+        if ((porPalas || porRespaldo) && tRealFinDetectado == 0L) tRealFinDetectado = ahora;
 
         // Negociacion terminada: antes de fotografiar el plan, se espera a que
         // las cuatro copias de la agenda tengan las mismas tareas. El lector
@@ -478,6 +482,20 @@ public class VentanaSimulacion extends JFrame {
                         ShovelAgent.getPalasRegistradas());
             }
             yaArranco = true;
+            if (ParametrosSimulador.TERMINAR_TRAS_PLAN_INICIAL) {
+                // Solo interesa el schedule inicial: se fotografia el plan
+                // (igual que antes, PlanBase.capturar escribe plan_inicial.csv),
+                // NO se arranca el turno (el reloj queda en 0) y se cierra la
+                // corrida: registros, resumen y apagado de JADE.
+                String motivo = !porPalas ? "respaldo_estabilidad"
+                        : PlanInicialFijo.usar() ? "plan_inicial_fijo" : "negociacion_completa";
+                long tCaptura = System.currentTimeMillis();
+                PlanBase.capturar(tiempoSimulacionMs, motivo);
+                btnPlayPause.setEnabled(false);
+                btnPlayPause.setText("✔ PLAN INICIAL GENERADO - cerrando");
+                CierrePlanInicial.cerrar(motivo, tCaptura, tRealFinDetectado);
+                return;
+            }
             pausado   = false;
             // Fotografia del PLAN PREDICTIVO justo antes de que el cursor avance:
             // es la referencia contra la que se mide la estabilidad al final.

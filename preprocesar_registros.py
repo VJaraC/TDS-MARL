@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+# ─────────────────────────────────────────────────────────────────────────────
+# OBSOLETO (nov-2026). Este script era para los EPISODIOS DE REPROGRAMACION, que
+# el trabajo de titulo ya no estudia. Desde la rama cierre-schedule-inicial cada
+# corrida termina al generarse el schedule inicial y escribe sus propios
+# registros (ver DOCUMENTACION_REGISTROS.md y EstadisticasPlanInicial.java).
+#
+# Ademas, el encabezado de negotiations.csv YA ESTA CORREGIDO: las columnas 9 y
+# 10 dicen "proposesRecibidas, refusesRecibidas", en el orden en que se
+# escriben. Si se reutiliza este codigo, ya NO hay que invertir ni reinterpretar
+# esas columnas al leer (leer_negociaciones las toma por posicion, que sigue
+# siendo correcto).
+# Se conserva solo como referencia; no se modifico su logica.
+# ─────────────────────────────────────────────────────────────────────────────
 """Preprocesador de registros de TDS-MARL.
 
 Lee los CSV que el simulador ya genera y produce, por corrida, un JSON compacto

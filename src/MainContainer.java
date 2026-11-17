@@ -20,7 +20,13 @@ import java.io.File;
  * Clase principal que inicializa el contenedor JADE y lanza varios agentes Shovel y Truck.
  */
 public class MainContainer {
+    /** Contenedor principal de JADE; lo usa CierrePlanInicial para apagar la plataforma. */
+    public static volatile AgentContainer contenedorPrincipal;
+
     public static void main(String[] args) {
+
+    	// Si la corrida termina tras el plan inicial, la etiqueta no puede estar usada.
+    	CierrePlanInicial.verificarEtiquetaLibre();
 
     	// === simulador (plus) === borra CSVs de la corrida anterior para empezar limpio
     	InicializadorSimulador.limpiarArchivosPrevios();
@@ -35,6 +41,7 @@ public class MainContainer {
         // Perfil por defecto (localhost, puerto 1099, GUI de JADE)
         Profile profile = new ProfileImpl();
         AgentContainer mainContainer = rt.createMainContainer(profile);
+        contenedorPrincipal = mainContainer;
         crearAgentesUnloadingPoints(mainContainer);
         crearAgentesPalas(mainContainer, grafoMina);
         crearAgentesCamiones(mainContainer, grafoMina);
