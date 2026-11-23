@@ -38,3 +38,4 @@ target/
 # IntelliJ
 .idea/
 *.iml
+__pycache__/
