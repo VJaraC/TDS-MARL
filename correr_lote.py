@@ -39,7 +39,15 @@ ESCENARIOS = {
     "grande": "datosShovelTrucksGrande_original.owl",
 }
 TIEMPO_MAXIMO_POR_DEFECTO_MIN = 360  # 6 h: solo un seguro contra corridas colgadas
-JGRAPHT = Path.home() / ".m2" / "repository" / "org" / "jgrapht" / "jgrapht-core" / "1.0.1" / "jgrapht-core-1.0.1.jar"
+# jgrapht: en el release viene en lib/; en desarrollo lo deja Maven en ~/.m2.
+JGRAPHT_LIB = REPO / "lib" / "jgrapht-core-1.0.1.jar"
+JGRAPHT = JGRAPHT_LIB if JGRAPHT_LIB.is_file() else (
+    Path.home() / ".m2" / "repository" / "org" / "jgrapht" / "jgrapht-core" / "1.0.1" / "jgrapht-core-1.0.1.jar")
+# Release para Windows: el programa ya compilado y un Java propio (ver windows/instalar.ps1).
+JAR_PROGRAMA = REPO / "tds-marl.jar"
+JAVA_RUNTIME = REPO / "runtime" / "java" / "bin" / ("java.exe" if os.name == "nt" else "java")
+# En Windows, que cada corrida no abra una ventana de consola propia.
+SIN_VENTANA = {"creationflags": 0x08000000} if os.name == "nt" else {}   # CREATE_NO_WINDOW
 NOMBRE_VALIDO = re.compile(r"^[A-Za-z0-9_.-]+$")
 # Traza que imprime VentanaSimulacion cada 15 s durante la negociacion inicial.
 TRAZA = re.compile(r"\[Negociacion inicial\] t\+(\d+)s\s+palas (\d+)/(\d+)\s+camiones (\d+)\s+slots (\d+)")
@@ -178,15 +186,30 @@ def validar_datos(datos):
 
 # ───────────────────────── ejecucion ─────────────────────────
 
+def modo_desarrollo():
+    """True en el repositorio (hay src/ y se compila en bin/); False en el release (tds-marl.jar)."""
+    return (REPO / "src").is_dir()
+
+
+def java_cmd():
+    """Comando para ejecutar Java. TDS_JAVA_CMD (lista JSON) lo reemplaza, lo usan las pruebas;
+    si no, el Java propio del release (runtime/java) o el 'java' del sistema."""
+    v = os.environ.get("TDS_JAVA_CMD")
+    if v:
+        return json.loads(v)
+    return [str(JAVA_RUNTIME)] if JAVA_RUNTIME.is_file() else ["java"]
+
+
 def classpath(gen):
-    return os.pathsep.join([str(REPO / "bin"), str(REPO / "lib" / "jade.jar"), str(gen["jgrapht_jar"])])
+    programa = REPO / "bin" if modo_desarrollo() else JAR_PROGRAMA
+    return os.pathsep.join([str(programa), str(REPO / "lib" / "jade.jar"), str(gen["jgrapht_jar"])])
 
 
 def comando(c, gen):
     cmd = []
     if gen["nucleos_cpu"]:
         cmd += ["taskset", "-c", gen["nucleos_cpu"]]
-    cmd += ["java", "-Dfile.encoding=UTF-8",
+    cmd += java_cmd() + ["-Dfile.encoding=UTF-8",
             "-Dtds.etiqueta=" + c["etiqueta"], "-Dtds.escenario=" + c["escenario"]]
     cmd += ["-D%s=%s" % kv for kv in sorted(c["propiedades"].items())]
     cmd += ["-Dtds.sinDialogo=true"]
@@ -197,6 +220,16 @@ def comando(c, gen):
 
 
 def compilar(gen, escribir):
+    if not modo_desarrollo():
+        if not JAR_PROGRAMA.is_file():
+            raise ErrorLote("no se encontro %s: el release esta incompleto" % JAR_PROGRAMA)
+        escribir("Usando el programa ya compilado (%s)." % JAR_PROGRAMA.name)
+        return
+    if not shutil.which("javac"):
+        if (REPO / "bin" / "MainContainer.class").is_file():
+            escribir("AVISO: no hay javac; se usa bin/ tal como esta.")
+            return
+        raise ErrorLote("no se encontro javac (JDK) para compilar src/")
     if not gen["jgrapht_jar"].is_file():
         raise ErrorLote("no se encontro jgrapht en %s (indica la ruta con \"jgrapht_jar\" en el JSON)"
                         % gen["jgrapht_jar"])
@@ -205,7 +238,7 @@ def compilar(gen, escribir):
     cp = os.pathsep.join([str(REPO / "lib" / "jade.jar"), str(gen["jgrapht_jar"])])
     escribir("Compilando %d archivos con javac --release 8 en bin/ ..." % len(fuentes))
     r = subprocess.run(["javac", "--release", "8", "-encoding", "UTF-8", "-nowarn", "-d", str(REPO / "bin"),
-                        "-cp", cp] + fuentes, cwd=REPO, capture_output=True, text=True)
+                        "-cp", cp] + fuentes, cwd=REPO, capture_output=True, text=True, **SIN_VENTANA)
     if r.returncode != 0:
         raise ErrorLote("la compilacion fallo:\n" + r.stdout + r.stderr)
 
@@ -338,13 +371,15 @@ class Progreso:
             linea = "  [%d/%d] %s  %s  %s  | lote %d/%d terminadas, resta %s" % (
                 a["indice"], d["total"], a["etiqueta"], palas, hms(a["transcurrido_s"]),
                 d["terminadas"], d["total"], d["restante_estimado"])
-            sys.stdout.write("\r\033[K" + linea[:200])
+            linea = linea[:150]
+            # '\r' y relleno con espacios (sin codigos de terminal: funciona tambien en la consola de Windows)
+            sys.stdout.write("\r" + linea.ljust(self.linea_visible or 0))
             sys.stdout.flush()
-            self.linea_visible = True
+            self.linea_visible = len(linea)
 
     def limpiar_linea(self):
         if self.linea_visible:
-            sys.stdout.write("\r\033[K")
+            sys.stdout.write("\r" + " " * self.linea_visible + "\r")
             sys.stdout.flush()
             self.linea_visible = False
 
@@ -406,7 +441,7 @@ def correr(ruta_json, gen, corridas, dir_lote=None, compilar_antes=True):
         prog.actualizar(forzar=True)
         t0 = time.time()
         with open(log, "w", encoding="utf-8", errors="replace") as salida:
-            proc = subprocess.Popen(cmd, cwd=REPO, stdout=salida, stderr=subprocess.STDOUT)
+            proc = subprocess.Popen(cmd, cwd=REPO, stdout=salida, stderr=subprocess.STDOUT, **SIN_VENTANA)
             colgada = False
             try:
                 while proc.poll() is None:
@@ -499,6 +534,12 @@ def simular(gen, corridas):
 
 
 def main():
+    # Nunca caerse por un caracter que la consola no puede mostrar (consola de Windows).
+    for flujo in (sys.stdout, sys.stderr):
+        try:
+            flujo.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
     p = argparse.ArgumentParser(description="Lanza un lote de corridas de TDS-MARL (ver COMO_CORRER.md).")
     p.add_argument("experimentos", help="archivo JSON con las configuraciones")
     p.add_argument("--simular", action="store_true", help="muestra que corridas haria y con que comando, sin ejecutar")

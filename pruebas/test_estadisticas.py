@@ -30,22 +30,35 @@ CAB_NEG = ("timestamp,agent,inicioNegociacion,finNegociacion,conversationId,cont
 CAB_MSG = "timestamp,agent,agentAction,sender,receivers,performative,conversationId,content,t_sim_ms"
 CAB_PLAN = "agente,tipo,contraparte,operacion,ubicacion,inicio_ms,fin_ms,material"
 
-BIN = None
+CP = None          # classpath del programa + arnes
+_TMP = None
 
 
 def setUpModule():
-    global BIN
-    BIN = Path(tempfile.mkdtemp(prefix="tds_bin_"))
-    cp = os.pathsep.join([str(REPO / "lib" / "jade.jar"), str(correr_lote.JGRAPHT)])
-    fuentes = [str(p) for p in (REPO / "src").glob("*.java")] + [str(REPO / "pruebas" / "java" / "ArnesEstadisticas.java")]
-    r = subprocess.run(["javac", "--release", "8", "-encoding", "UTF-8", "-nowarn", "-d", str(BIN), "-cp", cp] + fuentes,
-                       capture_output=True, text=True)
-    if r.returncode != 0:
-        raise RuntimeError("no compila:\n" + r.stdout + r.stderr)
+    """En desarrollo compila src/ y el arnes; en el release usa tds-marl.jar y pruebas/java/arnes.jar."""
+    global CP, _TMP
+    libs = [str(REPO / "lib" / "jade.jar"), str(correr_lote.JGRAPHT)]
+    if correr_lote.modo_desarrollo() and shutil.which("javac"):
+        _TMP = Path(tempfile.mkdtemp(prefix="tds_bin_"))
+        fuentes = [str(p) for p in (REPO / "src").glob("*.java")] + [str(REPO / "pruebas" / "java" / "ArnesEstadisticas.java")]
+        r = subprocess.run(["javac", "--release", "8", "-encoding", "UTF-8", "-nowarn", "-d", str(_TMP),
+                            "-cp", os.pathsep.join(libs)] + fuentes, capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError("no compila:\n" + r.stdout + r.stderr)
+        CP = os.pathsep.join([str(_TMP)] + libs)
+    else:
+        CP = os.pathsep.join([str(correr_lote.JAR_PROGRAMA), str(REPO / "pruebas" / "java" / "arnes.jar")] + libs)
 
 
 def tearDownModule():
-    shutil.rmtree(BIN, ignore_errors=True)
+    if _TMP:
+        shutil.rmtree(_TMP, ignore_errors=True)
+
+
+def java(*args, **kw):
+    """Ejecuta Java (el del release si existe) con el classpath de las pruebas."""
+    cmd = correr_lote.java_cmd() + list(args[:-1]) + ["-cp", CP, args[-1]]
+    return cmd
 
 
 def epoch(texto):
@@ -145,8 +158,7 @@ class Base(unittest.TestCase):
         escribir_csv(cls.dir / (PREFIJO + "messages.csv"), CAB_MSG, cls.msgs)
         if cls.resumen_previo:
             (cls.dir / "corridas" / "resumen_corridas.csv").write_text(cls.resumen_previo, encoding="utf-8")
-        cp = os.pathsep.join([str(BIN), str(REPO / "lib" / "jade.jar"), str(correr_lote.JGRAPHT)])
-        r = subprocess.run(["java", "-cp", cp, "ArnesEstadisticas", "corridas/x", cls.motivo, str(T_CAPTURA),
+        r = subprocess.run(java("ArnesEstadisticas") + ["corridas/x", cls.motivo, str(T_CAPTURA),
                             str(T_CAPTURA - 500), str(cls.camiones), cls.palas],
                            cwd=cls.dir, capture_output=True, text=True)
         if r.returncode != 0:
@@ -304,8 +316,7 @@ class ParametrosJava(unittest.TestCase):
         shutil.rmtree(self.dir, ignore_errors=True)
 
     def java(self, *props):
-        cp = os.pathsep.join([str(BIN), str(REPO / "lib" / "jade.jar"), str(correr_lote.JGRAPHT)])
-        return subprocess.run(["java", "-Dtds.sinDialogo=true", *props, "-cp", cp, "MainContainer"],
+        return subprocess.run(java("-Dtds.sinDialogo=true", *props, "MainContainer"),
                               cwd=self.dir, capture_output=True, text=True, timeout=60)
 
     def test_invalidos_no_arrancan(self):
@@ -337,17 +348,13 @@ class ParametrosJava(unittest.TestCase):
         self.assertEqual((self.dir / (PREFIJO + "messages.csv")).read_text(), "no se debe borrar")
 
     def test_valores_validos_se_aceptan(self):
-        # 'sin tope' y deadline enorme son validos: la validacion pasa (luego no hay JADE que levantar:
-        # se corta la prueba al ver la linea de configuracion aceptada)
-        cp = os.pathsep.join([str(BIN), str(REPO / "lib" / "jade.jar"), str(correr_lote.JGRAPHT)])
-        p = subprocess.Popen(["java", "-Dtds.sinDialogo=true", "-Dtds.sinVentana=true", "-Dtds.escenario=pequeno",
-                              "-Dtds.etiqueta=v1", "-Dtds.deadlineMs=999999999", "-Dtds.topeNegociacionMin=null",
-                              "-cp", cp, "MainContainer"], cwd=self.dir, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT, text=True)
-        linea = p.stdout.readline()
-        p.kill()
-        p.wait()
-        self.assertIn("[ConfiguracionCorrida] etiqueta=v1", linea)
-        self.assertIn("deadline_ms=999999999", linea)
-        self.assertIn("tope_negociacion=sin tope", linea)
-        self.assertIn("(sin ventana)", linea)
+        # 'sin tope' y un deadline enorme son validos: la configuracion se acepta. Para no levantar
+        # JADE (ni el aviso del firewall en Windows), la etiqueta ya existe y la corrida termina ahi.
+        (self.dir / "corridas" / "v1").mkdir(parents=True)
+        r = self.java("-Dtds.sinVentana=true", "-Dtds.escenario=pequeno", "-Dtds.etiqueta=v1",
+                      "-Dtds.deadlineMs=999999999", "-Dtds.topeNegociacionMin=null")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)          # etiqueta usada: no arranca
+        self.assertIn("[ConfiguracionCorrida] etiqueta=v1", r.stdout)
+        self.assertIn("deadline_ms=999999999", r.stdout)
+        self.assertIn("tope_negociacion=sin tope", r.stdout)
+        self.assertIn("(sin ventana)", r.stdout)

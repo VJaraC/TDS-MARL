@@ -21,11 +21,20 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def main():
+    for flujo in (sys.stdout, sys.stderr):          # consola de Windows: no caerse por un caracter
+        try:
+            flujo.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
     print("=== 1. Codigo original intacto ===", flush=True)
-    r = subprocess.run([sys.executable, str(REPO / "pruebas" / "verificar_codigo_original.py")])
-    if r.returncode != 0:
-        print("\nFALLA la verificacion del codigo original: no se corren las demas pruebas.")
-        return 1
+    if not (REPO / ".git").exists():
+        # El release (zip para Windows) no es un repositorio git: no hay contra que comparar.
+        print("Omitida: solo aplica en el repositorio de desarrollo (aqui no hay historial git).")
+    else:
+        r = subprocess.run([sys.executable, str(REPO / "pruebas" / "verificar_codigo_original.py")])
+        if r.returncode != 0:
+            print("\nFALLA la verificacion del codigo original: no se corren las demas pruebas.")
+            return 1
     sys.path.insert(0, str(REPO))
     ok = True
     for n, modulo in enumerate(("test_estadisticas", "test_correr_lote", "test_interfaz"), 2):

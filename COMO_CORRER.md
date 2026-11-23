@@ -291,7 +291,52 @@ importante y antes de cada commit.
 | `test_correr_lote.py` | La validación del JSON, los comandos que se arman y lotes completos con un `java` falso: OK, NO VÁLIDA, plan vacío, fallida, colgada, saltada, retomar, `--simular`, Detener y Ctrl+C |
 | `test_interfaz.py` | La ventana de lotes: editar, validar, guardar, cargar, simular, lanzar con progreso, Detener y las tres respuestas al cerrar con un lote corriendo |
 
-## 7. Valores bajos de DEADLINE_MS
+## 7. Release para Windows
+
+**Para quien usa el programa en Windows:**
+
+1. Descargar `TDS-MARL-<versión>-windows.zip`, descomprimirlo y hacer doble
+   clic en `INSTALAR.bat`.
+2. Seguir `LEEME.txt`, que viene dentro del zip.
+
+El instalador:
+
+- deja Java 21 y Python 3.12 con tkinter **dentro de la carpeta del
+  programa**;
+- no necesita internet ni permisos de administrador;
+- verifica la instalación, corre las pruebas y crea accesos directos;
+- se desinstala con `DESINSTALAR.bat`.
+
+**Para armar el release** (en el equipo de desarrollo, después de hacer
+commit):
+
+```bash
+python3 empaquetar_release.py --version v1.0.0      # deja dist/TDS-MARL-v1.0.0-windows.zip
+```
+
+El empaquetador:
+
+- corre las pruebas;
+- compila `tds-marl.jar`;
+- descarga (una vez, en `~/.cache/tds-marl-release`) el Java portátil de
+  Windows (Temurin JRE 21) y el instalador oficial de Python 3.12.10,
+  **verificando sus sumas de control publicadas**;
+- arma el zip, de unos 75 MB.
+
+Los archivos fuente del instalador están en `windows/`: `instalar.ps1`,
+`desinstalar.ps1`, los `.bat` y `LEEME.txt`.
+
+**Para publicarlo en GitHub:**
+
+```bash
+gh release create v1.0.0 dist/TDS-MARL-v1.0.0-windows.zip \
+  --target cierre-schedule-inicial --title "TDS-MARL v1.0.0 para Windows" \
+  --notes "Descomprimir y ejecutar INSTALAR.bat. Ver LEEME.txt."
+```
+
+O desde la web: *Releases → Draft a new release*, y adjuntar el zip.
+
+## 8. Valores bajos de DEADLINE_MS
 
 > **Análisis del código, no medido.** Lo siguiente se dedujo leyendo
 > `ShovelAgent` y `TruckAgent`. No se ha verificado con corridas, salvo lo

@@ -3,7 +3,8 @@
 
 - Validacion del JSON y armado de comandos: directamente sobre el modulo.
 - Ejecucion de lotes: en una copia de correr_lote.py dentro de una carpeta
-  temporal, con un "java" FALSO en el PATH que imita los desenlaces de una
+  temporal, con un "java" FALSO (un script de Python, indicado con la variable
+  TDS_JAVA_CMD; funciona en Linux y en Windows) que imita los desenlaces de una
   corrida segun su etiqueta (no se ejecuta JADE ni se toca corridas/ del repo):
     ..._ok_...      deja resumen_plan.json valido          -> OK
     ..._novalida_.. deja resumen_plan.json no valido       -> NO VALIDA
@@ -16,7 +17,6 @@ import json
 import os
 import shutil
 import signal
-import stat
 import subprocess
 import sys
 import tempfile
@@ -143,7 +143,7 @@ class Comandos(unittest.TestCase):
 
     def test_base(self):
         cmd = self.cmd({"nombre": "a", "escenario": "pequeno", "repeticiones": 1})
-        self.assertEqual(cmd[0], "java")
+        self.assertEqual(cmd[:len(cl.java_cmd())], cl.java_cmd())
         for x in ("-Dtds.etiqueta=a_r01", "-Dtds.escenario=datosShovelTrucksPequeno.owl",
                   "-Dtds.sinDialogo=true", "-Dtds.sinVentana=true", "MainContainer"):
             self.assertIn(x, cmd)
@@ -213,11 +213,8 @@ class Lotes(unittest.TestCase):
         shutil.copy(REPO / "correr_lote.py", self.d)
         for owl in cl.ESCENARIOS.values():
             (self.d / owl).write_text("x")
-        binf = self.d / "falso"
-        binf.mkdir()
-        (binf / "java").write_text(JAVA_FALSO)
-        (binf / "java").chmod((binf / "java").stat().st_mode | stat.S_IEXEC)
-        self.env = dict(os.environ, PATH=str(binf) + os.pathsep + os.environ["PATH"])
+        (self.d / "java_falso.py").write_text(JAVA_FALSO)
+        self.env = dict(os.environ, TDS_JAVA_CMD=json.dumps([sys.executable, str(self.d / "java_falso.py")]))
 
     def tearDown(self):
         shutil.rmtree(self.d, ignore_errors=True)

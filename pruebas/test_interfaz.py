@@ -2,7 +2,7 @@
 """Pruebas de interfaz_lotes.py (necesita entorno grafico y tkinter).
 
 Todo ocurre en una copia temporal de interfaz_lotes.py y correr_lote.py, con un
-"java" falso en el PATH (el mismo de test_correr_lote): no se ejecuta JADE ni se
+"java" falso (el mismo de test_correr_lote, via TDS_JAVA_CMD): no se ejecuta JADE ni se
 toca corridas/ del repositorio. Los dialogos se reemplazan por funciones que
 registran lo que se mostro.
 
@@ -12,7 +12,6 @@ import importlib
 import json
 import os
 import shutil
-import stat
 import subprocess
 import sys
 import tempfile
@@ -43,12 +42,9 @@ class Interfaz(unittest.TestCase):
         import correr_lote
         for owl in correr_lote.ESCENARIOS.values():
             (cls.d / owl).write_text("x")
-        binf = cls.d / "falso"
-        binf.mkdir()
-        (binf / "java").write_text(JAVA_FALSO)
-        (binf / "java").chmod((binf / "java").stat().st_mode | stat.S_IEXEC)
-        cls.path_antes = os.environ["PATH"]
-        os.environ["PATH"] = str(binf) + os.pathsep + os.environ["PATH"]
+        (cls.d / "java_falso.py").write_text(JAVA_FALSO)
+        cls.java_antes = os.environ.get("TDS_JAVA_CMD")
+        os.environ["TDS_JAVA_CMD"] = json.dumps([sys.executable, str(cls.d / "java_falso.py")])
         os.environ["JAVA_FALSO_SEG"] = "2"
         # importar las COPIAS (su REPO es la carpeta temporal)
         for m in ("correr_lote", "interfaz_lotes"):
@@ -59,7 +55,10 @@ class Interfaz(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        os.environ["PATH"] = cls.path_antes
+        if cls.java_antes is None:
+            os.environ.pop("TDS_JAVA_CMD", None)
+        else:
+            os.environ["TDS_JAVA_CMD"] = cls.java_antes
         os.environ.pop("JAVA_FALSO_SEG", None)
         sys.path.remove(str(cls.d))
         for m in ("correr_lote", "interfaz_lotes"):

@@ -797,6 +797,129 @@ nuevo.
 
 ---
 
+## 6bis. Etapa 4: release para Windows (23-nov)
+
+**Pedido.** Un release que funcione en Windows y que **instale todo lo
+necesario con un script** (Java, Python, tkinter), fácil de usar. La prueba en
+Windows la hace el equipo.
+
+**Decisiones:**
+
+| Tema | Decisión | Fundamento |
+|---|---|---|
+| Forma | Zip con `INSTALAR.bat`, que llama a `windows/instalar.ps1` (PowerShell 5.1, viene en Windows 10 y 11) | Doble clic; sin herramientas extra |
+| Dónde se instala | Todo **dentro de la carpeta del programa** (`runtime/java`, `runtime/python`), sin permisos de administrador y sin tocar el PATH | No choca con otro Java o Python del equipo; se desinstala fácilmente |
+| Java | Temurin JRE 21 portátil (zip) | No necesita instalación |
+| Python | Instalador oficial de python.org 3.12.10 (último instalador binario de la rama 3.12), en modo silencioso y solo para el usuario, con `TargetDir` en la carpeta | La versión "embebible" de Python no trae tkinter |
+| Sin internet | Los dos instaladores van **dentro del zip** (unos 75 MB) | No depende de enlaces externos al instalar |
+| Programa | `tds-marl.jar` ya compilado (con `Main-Class` y `Class-Path`) | No hace falta un JDK |
+| Accesos directos | Escritorio (Lotes, Resultados) y menú Inicio (además Una corrida, Pruebas, Leeme, Desinstalar) | Uso sin consola |
+| Publicación | Versión `v1.0.0`; el Release en GitHub lo publica el equipo | Es una acción visible hacia afuera |
+
+**Qué hace `instalar.ps1`** (se puede volver a ejecutar; lo que ya está
+instalado se salta):
+
+1. Desbloquea los archivos del zip descargado. Windows los marca como venidos
+   de internet, y sin esto el instalador de Python podría mostrar una
+   advertencia que cortaría la instalación silenciosa.
+2. Descomprime el Java en `runtime\java` y comprueba que arranque.
+3. Instala Python en `runtime\python` y comprueba que sea 3.8 o más nuevo y
+   que abra tkinter. Si esa misma versión ya estaba instalada en el equipo, el
+   instalador de Python la "repara" en vez de instalar en la carpeta; en ese
+   caso busca un Python existente con tkinter (en el registro y con `py.exe`)
+   y lo usa.
+4. Escribe `runtime\entorno.cmd` con las rutas que usan los `.bat`.
+5. Verificación rápida: Java rechaza un parámetro inválido (código 2) y
+   `correr_lote.py --simular` funciona.
+6. Corre las pruebas automáticas.
+7. Crea los accesos directos.
+8. Muestra un resumen por paso y ofrece una corrida de prueba de 2 min, que es
+   cuando Windows puede pedir el permiso del firewall para el puerto 1099.
+
+**`desinstalar.ps1`:**
+
+- quita los accesos directos;
+- desinstala el Python propio con su instalador (`/uninstall`), para que no
+  quede en "Aplicaciones" de Windows. Un Python que ya estaba en el equipo no
+  se toca;
+- borra `runtime\`;
+- conserva `corridas\`.
+
+**Cambios para que el sistema funcione en Windows** (en archivos nuevos; el
+código original no cambió):
+
+- **`correr_lote.py`:**
+  - usa el Java de `runtime/`, el jar ya compilado y jgrapht desde `lib/`;
+  - en Windows lanza Java **sin abrir una ventana de consola por corrida**
+    (`CREATE_NO_WINDOW`);
+  - la línea de progreso ya no usa códigos de terminal;
+  - no se cae por caracteres que la consola no puede mostrar;
+  - `TDS_JAVA_CMD` permite indicar el comando de Java (lo usan las pruebas).
+- **Pruebas:**
+  - el "java falso" se indica con `TDS_JAVA_CMD`, que funciona en Linux y en
+    Windows (en Windows, `java` debe ser un `.exe`);
+  - en el release se usan `tds-marl.jar` y `pruebas/java/arnes.jar`;
+  - la verificación del código original se omite fuera de git;
+  - la prueba de valores válidos ya no puede levantar JADE (ni el aviso del
+    firewall).
+- **Archivos nuevos:**
+  - `empaquetar_release.py` (arma el zip y verifica las sumas: SHA-256 del
+    Java publicada por Adoptium; MD5 y tamaño del instalador de Python
+    publicados por python.org);
+  - `windows/` (`instalar.ps1`, `desinstalar.ps1`, `INSTALAR.bat`,
+    `DESINSTALAR.bat`, `TDS-MARL Lotes.bat`, `Lanzar lote desde JSON.bat`,
+    `Correr una corrida.bat`, `Correr pruebas.bat`, `LEEME.txt`);
+  - `.gitignore` ahora ignora `dist/` y `runtime/`.
+
+**Hallazgos de compatibilidad, encontrados en la revisión manual y
+corregidos:**
+
+- **PowerShell 5.1 elimina las comillas dobles de los argumentos** que pasa a
+  otros programas. La comprobación de Python (`print("ok")`) habría llegado
+  como `print(ok)` y Python nunca se habría reconocido. Ahora se usan comillas
+  simples.
+- **`entorno.cmd` debe escribirse en la codificación OEM** que lee `cmd.exe`;
+  en ASCII, una ruta con tildes (por ejemplo `C:\Users\José`) quedaba rota.
+- La salida de error de los programas se convierte a texto simple. Antes
+  aparecía con el formato de error de PowerShell.
+- **Restos de intentos anteriores:** una instalación de Java a medias impedía
+  reintentar, y una entrada rota del registro cortaba la búsqueda de Python.
+- **Desinstalar no era solo borrar la carpeta,** porque el Python instalado
+  queda registrado en Windows. Se agregó el desinstalador.
+
+**Pruebas hechas aquí (Linux):**
+
+- el zip tiene la estructura esperada, los `.bat` y `.ps1` tienen CRLF, y el
+  `.ps1` y `LEEME.txt` tienen la marca UTF-8;
+- `java -jar tds-marl.jar` con un parámetro inválido sale con código 2;
+- en el release descomprimido, en una carpeta **con un espacio** en el nombre,
+  pasan las 49 pruebas (la verificación del código original se omite porque no
+  hay git);
+- una corrida real corta con el jar del release dejó todos los archivos de
+  resultados.
+
+**Lo que no se pudo probar aquí:** la ejecución del instalador, del
+desinstalador y de los `.bat` en Windows. Tampoco se pudo pasar el analizador
+de sintaxis de PowerShell: descargar PowerShell para Linux no fue permitido en
+el entorno de desarrollo. Esa parte se revisó a mano y debe probarse en un PC
+con Windows (lista de prueba en el mensaje de entrega y abajo).
+
+**Lista de prueba en Windows:**
+
+1. Descomprimir el zip en una carpeta y ejecutar `INSTALAR.bat`. Todos los pasos
+   deben quedar en OK.
+2. Aceptar la corrida de prueba de 2 min y el permiso del firewall (redes
+   privadas).
+3. Abrir "TDS-MARL - Lotes" desde el escritorio, cargar
+   `experimentos_ejemplo.json`, pulsar **Simular** y luego lanzar un lote
+   pequeño. Comprobar que no aparezcan ventanas de consola ni la mina.
+4. `Correr una corrida.bat` con tope 1 (debe verse la mina y, al final, el
+   diálogo).
+5. Abrir `corridas\resumen_corridas.csv` en Excel.
+6. Repetir la instalación en una carpeta con tildes o espacios.
+7. `DESINSTALAR.bat`: los accesos directos y "Python 3.12.10" deben
+   desaparecer de "Aplicaciones".
+
 ## 7. Hallazgos
 
 Cada hallazgo indica qué se observó, la evidencia, cómo interpretarlo y su
