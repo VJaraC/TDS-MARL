@@ -38,3 +38,8 @@ target/
 # IntelliJ
 .idea/
 *.iml
+__pycache__/
+
+# Release para Windows (empaquetar_release.py) y su instalacion
+dist/
+runtime/

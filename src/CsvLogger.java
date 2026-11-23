@@ -13,7 +13,7 @@ public class CsvLogger {
     private static PrintWriter writer;
 
     // Cabecera para el CSV (opcionales).
-    private static final String HEADER = "timestamp,agent,agentAction,sender,receivers,performative,conversationId,content";
+    private static final String HEADER = "timestamp,agent,agentAction,sender,receivers,performative,conversationId,content,t_sim_ms";
 
     // Se ejecuta una vez al cargar la clase
     static {
@@ -63,7 +63,10 @@ public class CsvLogger {
                     receivers,
                     performative,
                     conversationId,
-                    safeContent
+                    safeContent,
+                    // Hora simulada al escribir la fila; -1 mientras el reloj no ha arrancado (vale 0).
+                    Long.toString(VentanaSimulacion.tiempoSimulacionGlobalMs > 0
+                            ? VentanaSimulacion.tiempoSimulacionGlobalMs : -1L)
             );
 
             writer.println(line);

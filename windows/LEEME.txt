@@ -1,0 +1,103 @@
+TDS-MARL para Windows — versión {VERSION}
+====================================================
+
+Sistema multiagente (JADE) que negocia el plan inicial de despacho camión–pala
+de una mina. Cada corrida negocia el plan, deja sus resultados en la carpeta
+"corridas" y termina sola.
+
+
+1. INSTALAR (una sola vez)
+--------------------------
+1. Descomprime el zip en una carpeta tuya, por ejemplo "Documentos\TDS-MARL".
+   No lo ejecutes desde dentro del zip.
+2. Haz doble clic en INSTALAR.bat.
+   - Si Windows muestra "Windows protegió su PC": "Más información" y luego
+     "Ejecutar de todas formas".
+   - La instalación demora unos 3 a 5 minutos y no necesita internet ni
+     permisos de administrador.
+   - Instala dentro de esta carpeta Java 21 y Python 3.12 con tkinter. No toca
+     ningún otro Java o Python que tengas instalado.
+   - Al final verifica que todo funcione y corre las pruebas automáticas.
+   - Ofrece hacer una corrida de prueba de 2 minutos. Si Windows pregunta por
+     el firewall para "OpenJDK Platform binary", acepta en "Redes privadas": el
+     sistema usa el puerto local 1099 para comunicar a sus agentes.
+3. Si algo sale mal, la ventana lo dice en rojo y el detalle queda en
+   instalacion.log. Corrige lo indicado y vuelve a ejecutar INSTALAR.bat; lo que
+   ya quedó instalado se salta.
+
+Quedan accesos directos en el escritorio y en el menú Inicio (carpeta
+TDS-MARL):
+- "TDS-MARL - Lotes": la ventana para armar y lanzar experimentos.
+- "TDS-MARL - Resultados": la carpeta con los resultados.
+
+
+2. USAR
+-------
+TDS-MARL - Lotes (o TDS-MARL Lotes.bat)
+  Ventana para armar un lote de corridas: configuraciones con escenario
+  (pequeno, mediano o grande), repeticiones y DEADLINE_MS. Botones:
+  - Guardar: escribe un archivo .json.
+  - Simular: muestra lo que haría, sin ejecutar nada.
+  - Lanzar: corre el lote, mostrando el avance y el tiempo restante estimado.
+  - Detener: termina el lote después de la corrida en curso.
+  Si cierras la ventana con un lote corriendo, pregunta si lo detienes o si lo
+  dejas corriendo en segundo plano.
+
+Lanzar lote desde JSON.bat
+  Lo mismo, en una consola. Arrastra un .json sobre el archivo, o haz doble
+  clic para usar experimentos_ejemplo.json.
+
+Correr una corrida.bat
+  Una corrida suelta, que pregunta etiqueta, escenario, DEADLINE_MS y tope. En
+  este caso sí se ve la mina y al final aparece un resumen.
+
+Correr pruebas.bat
+  Las pruebas automáticas (1 a 2 minutos).
+
+Retomar un lote cortado (se apagó el PC, se cerró la ventana...): vuelve a
+lanzar el mismo archivo .json. Las corridas ya hechas se saltan.
+
+Duración: una corrida del escenario pequeño con DEADLINE_MS = 5000 tarda unos
+25 minutos de reloj real; las corridas no se pueden acelerar. Un lote de 30
+corridas son unas 12 horas. Conviene desactivar la suspensión del PC
+mientras corre (Configuración > Sistema > Inicio/apagado y suspensión).
+
+
+3. RESULTADOS
+-------------
+corridas\<etiqueta>\           Una carpeta por corrida:
+   resumen_plan.txt            Resumen legible (producción, palas, negociación, mensajes).
+   resumen_plan.json           Lo mismo, para procesar.
+   configuracion.json          Con qué parámetros se corrió.
+   negociacion_inicial.csv     Una fila por negociación.
+   plan_inicial.csv            El plan (schedule) generado.
+corridas\resumen_corridas.csv  Una fila por corrida: ábrelo en Excel para comparar.
+corridas\_lotes\               Registro de cada lote (lote.json, logs).
+
+El significado de cada campo está en docs\DOCUMENTACION_REGISTROS.md, y la
+guía completa en docs\COMO_CORRER.md. Esos archivos .md se pueden leer con el
+Bloc de notas o con cualquier visor de Markdown.
+
+
+4. DESINSTALAR
+--------------
+1. Haz doble clic en DESINSTALAR.bat. Quita los accesos directos, desinstala el
+   Python que se instaló para este programa (para que no quede en
+   "Aplicaciones" de Windows) y borra la carpeta runtime. No toca ningún otro
+   Java o Python del equipo.
+2. Copia la carpeta "corridas" si quieres conservar los resultados.
+3. Borra la carpeta del programa.
+
+
+5. CONTENIDO
+------------
+INSTALAR.bat, DESINSTALAR.bat, *.bat   Instalador, desinstalador y lanzadores.
+tds-marl.jar, lib\         El programa (ya compilado) y sus librerías (JADE, jgrapht).
+*.owl, planes_iniciales\   Escenarios de la mina.
+correr_lote.py, interfaz_lotes.py, experimentos_ejemplo.json   Lotes.
+pruebas\                   Pruebas automáticas.
+instaladores\              Java (Temurin) y Python, usados por INSTALAR.bat.
+runtime\                   Se crea al instalar: Java y Python de este programa.
+docs\                      Documentación.
+licencias\                 Licencias de los componentes de terceros.
+VERSION.txt                Versión, commit de origen y verificación de los archivos.

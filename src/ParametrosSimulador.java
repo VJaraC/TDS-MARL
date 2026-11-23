@@ -15,7 +15,8 @@ public class ParametrosSimulador {
      *   "mediano_baseline_capa1"
      *   "grande_baseline_capa1"
      */
-    public static final String ETIQUETA_ESCENARIO = "grande_F1_COMPLETE";
+    // Valor POR DEFECTO; se puede entregar con -Dtds.etiqueta (ver ConfiguracionCorrida).
+    public static final String ETIQUETA_ESCENARIO = ConfiguracionCorrida.etiqueta("grande_F1_COMPLETE");
 
     /**
      * Switch maestro de incertidumbre.
@@ -64,7 +65,7 @@ public class ParametrosSimulador {
     }
 
     public static final MetodoRescheduling METODO_RESCHEDULING =
-            MetodoRescheduling.COMPLETE_REGENERATION;
+            MetodoRescheduling.NINGUNO;
 
     /**
      * Variacion maxima del factor de velocidad propio de cada camion, como
@@ -133,7 +134,7 @@ public class ParametrosSimulador {
      * plan_inicial_verificacion.txt dice si partio exactamente del plan unico.
      * Ver PlanInicialFijo y GuardarPlanInicial.
      */
-    public static final boolean USAR_PLAN_INICIAL_FIJO = true;
+    public static final boolean USAR_PLAN_INICIAL_FIJO = false;
 
     /**
      * Cada cuántos milisegundos releé el CSV de schedules para detectar nuevos
@@ -206,5 +207,21 @@ public class ParametrosSimulador {
      * camiones cada negociacion tarda mas. 90 minutos deja margen para el
      * grande; el tope solo debe actuar si algo quedo realmente colgado.
      */
-    public static final long TOPE_NEGOCIACION_INICIAL_MS = 5_400_000L; // 90 min
+    // 90 min POR DEFECTO; -Dtds.topeNegociacionMin=<min|null> lo cambia (null = sin
+    // tope, vale ConfiguracionCorrida.SIN_TOPE). Ver ConfiguracionCorrida.
+    public static final long TOPE_NEGOCIACION_INICIAL_MS = ConfiguracionCorrida.topeNegociacionMs(5_400_000L);
+
+    /**
+     * Terminar la corrida apenas se genera el schedule inicial (nov-2026).
+     *
+     *   true  = al capturar el plan inicial NO se ejecuta el turno: se escriben
+     *           los registros y estadisticas del plan en corridas/<etiqueta>/,
+     *           se muestra un resumen y se apaga JADE (CierrePlanInicial).
+     *           Ademas, si corridas/<etiqueta>/ ya existe, la corrida no
+     *           arranca (para no sobrescribir resultados).
+     *   false = comportamiento anterior: la simulacion del turno arranca sola.
+     *
+     * Ver DOCUMENTACION_REGISTROS.md.
+     */
+    public static final boolean TERMINAR_TRAS_PLAN_INICIAL = true;
 }

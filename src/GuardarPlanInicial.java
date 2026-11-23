@@ -91,6 +91,10 @@ public final class GuardarPlanInicial {
             } else if (!"negociacion_completa".equals(motivo)) {
                 conclusion = "No se guarda como plan unico: la negociacion inicial no termino (" + motivo + ").";
                 lineas.add(conclusion);
+            } else if (plan.isEmpty()) {
+                // Negociacion sin ningun slot (VentanaSimulacion.evaluarCierreSinSlots).
+                conclusion = "No se guarda como plan unico: el plan esta vacio.";
+                lineas.add(conclusion);
             } else if (!problemas.isEmpty()) {
                 conclusion = "No se guarda como plan unico: el plan tiene problemas.";
                 lineas.add(conclusion);

@@ -88,6 +88,8 @@ public class VentanaSimulacion extends JFrame {
     private boolean planFijoListoImpreso = false;
     private long    tRealPalasCompletas = 0L;
     private boolean avisoCopias         = false;
+    private long    tRealFinDetectado   = 0L;   // fin de la negociacion detectado (CierrePlanInicial)
+    private long    tRealInicioSinSlots = 0L;   // inicio de la espera sin ningun slot (evaluarCierreSinSlots)
     private long ultimaVersionEventos = -1; // recalcular también si cambian los eventos
 
     public VentanaSimulacion(Graph<Vertice, DefaultWeightedEdge> grafo) {
@@ -398,7 +400,12 @@ public class VentanaSimulacion extends JFrame {
         if (PlanInicialFijo.usar() && !planFijoListo(btnPlayPause)) return;
 
         Map<String, Schedule> agendas = RegistroSimulacion.getInstancia().getAgendasCamiones();
-        if (agendas.isEmpty()) return;      // todavia no llego ningun slot
+        if (agendas.isEmpty()) {            // todavia no llego ningun slot
+            if (ParametrosSimulador.TERMINAR_TRAS_PLAN_INICIAL && !PlanInicialFijo.usar()) {
+                evaluarCierreSinSlots(btnPlayPause);
+            }
+            return;
+        }
 
         long firma = firmaDelPlan(agendas);
         long ahora = System.currentTimeMillis();
@@ -449,6 +456,9 @@ public class VentanaSimulacion extends JFrame {
         boolean porPalas = ShovelAgent.negociacionInicialCompleta();
         boolean porRespaldo = (ahora - tRealPrimerSlot)
                 >= ParametrosSimulador.TOPE_NEGOCIACION_INICIAL_MS;
+        // Instante (reloj de pared) en que se detecto el fin de la negociacion,
+        // antes de esperar las copias. Solo se registra (espera_copias_ms).
+        if ((porPalas || porRespaldo) && tRealFinDetectado == 0L) tRealFinDetectado = ahora;
 
         // Negociacion terminada: antes de fotografiar el plan, se espera a que
         // las cuatro copias de la agenda tengan las mismas tareas. El lector
@@ -478,6 +488,20 @@ public class VentanaSimulacion extends JFrame {
                         ShovelAgent.getPalasRegistradas());
             }
             yaArranco = true;
+            if (ParametrosSimulador.TERMINAR_TRAS_PLAN_INICIAL) {
+                // Solo interesa el schedule inicial: se fotografia el plan
+                // (igual que antes, PlanBase.capturar escribe plan_inicial.csv),
+                // NO se arranca el turno (el reloj queda en 0) y se cierra la
+                // corrida: registros, resumen y apagado de JADE.
+                String motivo = !porPalas ? "respaldo_estabilidad"
+                        : PlanInicialFijo.usar() ? "plan_inicial_fijo" : "negociacion_completa";
+                long tCaptura = System.currentTimeMillis();
+                PlanBase.capturar(tiempoSimulacionMs, motivo);
+                btnPlayPause.setEnabled(false);
+                btnPlayPause.setText("✔ PLAN INICIAL GENERADO - cerrando");
+                CierrePlanInicial.cerrar(motivo, tCaptura, tRealFinDetectado);
+                return;
+            }
             pausado   = false;
             // Fotografia del PLAN PREDICTIVO justo antes de que el cursor avance:
             // es la referencia contra la que se mide la estabilidad al final.
@@ -501,6 +525,46 @@ public class VentanaSimulacion extends JFrame {
                             : PlanInicialFijo.usar() ? "plan inicial fijo" : "negociacion completa",
                     ParametrosSimulador.VELOCIDAD_REPRODUCCION);
         }
+    }
+
+    /**
+     * Negociacion inicial SIN NINGUN SLOT (p. ej. DEADLINE_MS tan bajo que
+     * ninguna negociacion tiene ganador). Sin esto la corrida quedaba abierta
+     * para siempre: evaluarArranqueAutomatico sale antes de mirar el criterio
+     * de palas llenas y el tope, porque las agendas del simulador se crean
+     * recien con el primer slot. Solo actua con TERMINAR_TRAS_PLAN_INICIAL y
+     * solo mientras no hay slots, asi que no cambia nada cuando hay plan.
+     *
+     * Cierra con plan vacio cuando todas las palas llenaron su turno (motivo
+     * negociacion_completa) o, si eso no pasa, al cumplirse el tope contado
+     * desde la primera evaluacion de la ventana (motivo respaldo_estabilidad).
+     */
+    private void evaluarCierreSinSlots(javax.swing.JButton btnPlayPause) {
+        long ahora = System.currentTimeMillis();
+        if (tRealInicioSinSlots == 0L) tRealInicioSinSlots = ahora;
+        if (ahora - tRealInicioSinSlots >= 15_000L && ahora - tRealUltimaTraza >= 15_000L) {
+            tRealUltimaTraza = ahora;
+            System.out.printf("[Negociacion inicial] t+%.0fs  palas %d/%d  camiones 0  slots 0  (sin slots todavia)%n",
+                    (ahora - tRealInicioSinSlots) / 1000.0,
+                    ShovelAgent.getPalasConTurnoLleno(), ShovelAgent.getPalasRegistradas());
+        }
+        boolean porPalas = ShovelAgent.negociacionInicialCompleta();
+        boolean porRespaldo = (ahora - tRealInicioSinSlots) >= ParametrosSimulador.TOPE_NEGOCIACION_INICIAL_MS;
+        // Si los agentes tienen tareas que el simulador aun no lee, se espera:
+        // el camino normal se hace cargo apenas aparezca el primer slot.
+        if (porPalas && !PlanInicialFijo.copiasAlDia()) return;
+        if (!porPalas && !porRespaldo) return;
+        if (tRealFinDetectado == 0L) tRealFinDetectado = ahora;
+        yaArranco = true;
+        String motivo = porPalas ? "negociacion_completa" : "respaldo_estabilidad";
+        System.err.printf("[VentanaSimulacion] AVISO: la negociacion inicial termino SIN NINGUN SLOT "
+                + "(%d/%d palas con el turno lleno, motivo=%s). Se cierra con plan vacio.%n",
+                ShovelAgent.getPalasConTurnoLleno(), ShovelAgent.getPalasRegistradas(), motivo);
+        long tCaptura = System.currentTimeMillis();
+        PlanBase.capturar(tiempoSimulacionMs, motivo);
+        btnPlayPause.setEnabled(false);
+        btnPlayPause.setText("✔ PLAN INICIAL (VACIO) GENERADO - cerrando");
+        CierrePlanInicial.cerrar(motivo, tCaptura, tRealFinDetectado);
     }
 
     /**
