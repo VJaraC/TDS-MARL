@@ -4,6 +4,9 @@ Este documento explica qué archivos deja cada corrida del sistema multiagente,
 qué significa cada dato y cómo se calcula. Está pensado para alguien que no
 conoce el código.
 
+**Para lanzar corridas** (una a mano o un lote de experimentos con distintos
+escenarios y `DEADLINE_MS`, sin recompilar), ver [COMO_CORRER.md](COMO_CORRER.md).
+
 ## 1. Qué hace una corrida
 
 1. Se crean los agentes JADE: palas, camiones y puntos de descarga (destinos).
@@ -19,16 +22,23 @@ conoce el código.
    plataforma, libera el puerto 1099).
 
 Si la negociación no terminó por sí sola sino por el **tope de tiempo**
-(`TOPE_NEGOCIACION_INICIAL_MS`, 90 min), los archivos se generan igual pero la
+(`TOPE_NEGOCIACION_INICIAL_MS`: 90 min por defecto, configurable o sin tope, ver
+[COMO_CORRER.md](COMO_CORRER.md)), los archivos se generan igual pero la
 corrida queda marcada **NO VÁLIDA** (`corrida_valida = false`) en el resumen y
 en el diálogo: su plan está incompleto y no es comparable con las demás.
 
+Si **ninguna** negociación tuvo ganador (por ejemplo, con un `DEADLINE_MS` muy
+bajo), la corrida termina igual cuando las palas recorrieron su turno, con un
+**plan vacío** (`plan_vacio = true`). Antes una corrida así no terminaba nunca.
+
 ### Antes de lanzar
 
-- Cambiar `ParametrosSimulador.ETIQUETA_ESCENARIO`. Si `corridas/<etiqueta>/`
-  ya existe, **la corrida no arranca** (aviso por consola y en un diálogo), para
-  no sobrescribir resultados.
-- El escenario se elige en `ParametrosConfiguracion.NOMBRE_ARCHIVO_FLOTA`.
+- Cada corrida necesita una etiqueta nueva: `-Dtds.etiqueta=...` o, a mano,
+  `ParametrosSimulador.ETIQUETA_ESCENARIO`. Si `corridas/<etiqueta>/` ya existe,
+  **la corrida no arranca** (aviso por consola y, salvo en modo sin diálogo, en
+  un diálogo), para no sobrescribir resultados. `correr_lote.py` las genera solo.
+- El escenario se elige con `-Dtds.escenario=...` o en
+  `ParametrosConfiguracion.NOMBRE_ARCHIVO_FLOTA` (valor por defecto).
 - Para estudiar la negociación: `USAR_PLAN_INICIAL_FIJO = false` (si es `true`
   no se negocia: se carga un plan guardado) y `METODO_RESCHEDULING = NINGUNO`.
 
@@ -46,11 +56,15 @@ en el diálogo: su plan está incompleto y no es comparable con las demás.
 | `<flota>SinRLnegotiations.csv` | raíz del repo (ídem) | Durante la corrida, una fila por negociación cerrada |
 | `<flota>SinRLschedules.csv` | raíz del repo (ídem) | Durante la corrida; lo lee el simulador (`LectorCSVSchedules`) |
 | `schedules_por_reprogramacion/schedule_01.csv` | `corridas/<etiqueta>/` | Al capturar el plan |
+| `registros_negociacion/<flota>SinRL{messages,negotiations,schedules}.csv` | `corridas/<etiqueta>/` | Al final de la corrida: copia de los tres CSV crudos de la raíz |
 
 `<flota>` es el nombre del archivo OWL sin extensión, por ejemplo
 `datosShovelTrucksPequenoSinRLmessages.csv`. Los tres CSV de la raíz se
-sobrescriben en la siguiente corrida: si se necesitan, copiarlos a la carpeta
-de la corrida. La carpeta `corridas/` está ignorada por git.
+borran al iniciar la siguiente corrida, por eso al cerrar se copian a
+`corridas/<etiqueta>/registros_negociacion/`. La copia es el archivo completo
+(no se filtra por fase); en una corrida NO VÁLIDA puede traer filas posteriores
+a la captura del plan, que los resúmenes excluyen. La carpeta `corridas/` está
+ignorada por git.
 
 Los archivos nuevos (`configuracion.json`, `negociacion_inicial.csv`,
 `resumen_plan.*`, `resumen_corridas.csv`) los escribe
@@ -72,7 +86,11 @@ Con qué se corrió.
 | `pesos_seleccion_pala` | Los cinco pesos con que la pala elige al camión ganador (ver abajo) |
 | `paso_barrido_ms` | Cuánto avanza la pala su oferta cuando nadie la acepta (60 000 ms) |
 | `turno_ms` | Largo del turno (21 600 000 ms = 6 h) |
-| `usar_plan_inicial_fijo`, `metodo_rescheduling`, `terminar_tras_plan_inicial`, `tope_negociacion_inicial_ms` | Interruptores de `ParametrosSimulador` |
+| `usar_plan_inicial_fijo`, `metodo_rescheduling`, `terminar_tras_plan_inicial` | Interruptores de `ParametrosSimulador` |
+| `tope_negociacion_inicial_ms`, `tope_negociacion_min` | Tope de la negociación inicial efectivamente usado (ms y min); `null` = sin tope |
+| `origen_parametros` | De dónde salió cada parámetro configurable (`etiqueta`, `escenario`, `deadline_ms`, `tope_negociacion_min`): `propiedad` (entregado al lanzar, por ejemplo por `correr_lote.py`) o `codigo` (valor escrito en el código) |
+| `sin_dialogo` | `true` si la corrida se lanzó sin diálogos (lotes) |
+| `sin_ventana` | `true` si no se mostró la ventana de la simulación (lotes, por defecto) |
 | `java_version` | Versión de Java con que se ejecutó |
 | `git_commit` | Commit del código (vacío si no se pudo obtener) |
 | `git_sucio` | `true` si había cambios sin commit (por ejemplo, parámetros editados) |
@@ -148,6 +166,7 @@ Los dos tienen la misma información. El `.txt` está pensado para leerlo; el
 |---|---|
 | `motivo_fin_negociacion` | `negociacion_completa` (todas las palas llenaron su turno), `respaldo_estabilidad` (se agotó el tope de tiempo) o `plan_inicial_fijo` (no hubo negociación: se cargó un plan guardado) |
 | `corrida_valida` | `true` solo si el motivo es `negociacion_completa` |
+| `plan_vacio` | `true` si el plan no tiene ninguna carga (ninguna negociación con ganador). Puede ser una corrida válida: las palas recorrieron su turno sin lograr asignar camiones |
 
 ### Producción planificada
 
@@ -277,11 +296,77 @@ captura omitidas.
 
 Una fila por corrida, para comparar corridas en una planilla. Tiene la
 configuración principal (`etiqueta`, `fecha_hora`, `escenario`, flota,
-`deadline_ms`, interruptores, `git_commit`, `git_sucio`) y los totales de
-`resumen_plan.json` con los mismos nombres y definiciones. Las comas dentro de
-un valor se reemplazan por `;`.
+`deadline_ms`, `tope_negociacion_min`, interruptores, `git_commit`,
+`git_sucio`) y los totales de `resumen_plan.json` (incluido `plan_vacio`) con
+los mismos nombres y definiciones. Las comas dentro de un valor se reemplazan
+por `;`.
 
-## 8. Archivos antiguos
+Si el archivo viene de una versión anterior con menos columnas, al agregar la
+siguiente fila se reescribe con el encabezado actual: las filas antiguas
+conservan sus valores y las columnas nuevas quedan vacías.
+
+`corridas/_lotes/` guarda el registro de cada lote lanzado con `correr_lote.py`
+(ver [COMO_CORRER.md](COMO_CORRER.md)).
+
+## 8. Limitaciones conocidas
+
+### Destinatarios vacíos en los envíos de los camiones
+
+En `messages.csv`, las filas `SEND` escritas por los camiones traen la columna
+`receivers` vacía. La causa es un defecto en `TruckAgent.getReceiverString`
+(`src/TruckAgent.java:375`):
+
+```java
+receiverList.concat(r.getLocalName()+"/");   // el resultado de concat se descarta
+```
+
+En Java los `String` no se modifican: `concat` devuelve una cadena nueva que
+aquí no se guarda, así que el método siempre devuelve una cadena vacía. No se
+corrigió porque está en el código del agente y cambiaría el formato de
+`messages.csv`.
+
+**Cómo se compensa en el conteo de mensajes.** Un camión siempre envía cada
+mensaje a **un solo** receptor (responde con `createReply` al emisor, o agrega
+un único destinatario al pedir descarga o confirmarla). Por eso cada fila `SEND`
+de un camión con `receivers` vacío se cuenta como **1** entrega
+(`filas_send_camion_sin_receptores_contadas_como_1` en
+`control_cruzado_mensajes`). En cambio, una fila `SEND` de una pala sin
+receptores se cuenta como **0**, porque la columna de las palas sí es fiel: es
+un REJECT_PROPOSAL enviado a una lista vacía cuando no hubo perdedores, que no
+llega a nadie (`filas_send_pala_sin_receptores_contadas_como_0`). El control
+cruzado (contar las mismas entregas desde el lado del receptor) confirma la
+compensación: en las corridas de prueba la diferencia fue 0. Lo que **no** se
+puede saber desde `messages.csv` es a quién envió cada camión; para eso hay que
+mirar la fila `RECEIVE` correspondiente.
+
+### El plan varía entre corridas con la misma configuración
+
+La negociación no es determinista: los agentes JADE corren en hilos y el orden
+en que llegan las respuestas cambia de una corrida a otra. Con exactamente la
+misma configuración (escenario pequeño, `USAR_PLAN_INICIAL_FIJO = false`,
+`METODO_RESCHEDULING = NINGUNO`), en las pruebas de noviembre de 2026 el plan
+inicial tuvo **82, 95, 87 y 87 cargas** (328 a 380 tareas de camión) y la
+negociación duró entre 1415 y 1463 s.
+
+Incluso cuando dos corridas coinciden en la cantidad de cargas, los planes
+**no son iguales**. Las dos corridas con 87 cargas y el plan único guardado del
+escenario (`planes_iniciales/plan_inicial_datosShovelTrucksPequeno.csv`, también
+87 cargas) comparten solo 40 a 60 de sus 522 tareas idénticas (mismo agente,
+operación, horas y material). Además reparten la flota de forma muy distinta:
+una corrida concentró 68 cargas en PA04, mientras la otra y el plan único
+concentraron 75 y 76 en PA03.
+
+Consecuencias:
+
+- Una sola corrida no representa a una configuración. Para comparar
+  configuraciones (por ejemplo, distintos `DEADLINE_MS` o pesos) hay que hacer
+  varias réplicas y reportar promedio y dispersión.
+- Coincidencias en conteos (cargas, tareas) no implican el mismo plan.
+- Si se necesita partir siempre del mismo plan, está
+  `USAR_PLAN_INICIAL_FIJO = true`, pero entonces no hay negociación inicial
+  que estudiar.
+
+## 9. Archivos antiguos
 
 Siguen existiendo pero ya no son el foco:
 

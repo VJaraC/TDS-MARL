@@ -39,7 +39,9 @@ public final class CierrePlanInicial {
                 + "y vuelve a lanzar. La corrida NO arranca para no sobrescribir resultados.";
         System.err.println("[CierrePlanInicial] ERROR: " + texto.replace('\n', ' '));
         try {
-            JOptionPane.showMessageDialog(null, texto, "Etiqueta repetida", JOptionPane.ERROR_MESSAGE);
+            if (!ConfiguracionCorrida.sinDialogo()) {
+                JOptionPane.showMessageDialog(null, texto, "Etiqueta repetida", JOptionPane.ERROR_MESSAGE);
+            }
         } catch (Exception e) {
             // sin entorno grafico: basta con el aviso por consola
         }
@@ -70,6 +72,7 @@ public final class CierrePlanInicial {
                 System.err.println("[CierrePlanInicial] no se pudieron generar los archivos de resumen: " + e);
                 e.printStackTrace();
             }
+            copiarRegistrosCrudos(new File(dir, "registros_negociacion"));
             final EstadisticasPlanInicial.Resultado res = r;
             final String err = error;
             SwingUtilities.invokeLater(() -> {
@@ -78,6 +81,32 @@ public final class CierrePlanInicial {
             });
         }, "cierre-plan-inicial");
         t.start();
+    }
+
+    /**
+     * Copia messages.csv, negotiations.csv y schedules.csv de la raiz a la
+     * carpeta de la corrida: la corrida siguiente los borra al iniciar
+     * (InicializadorSimulador.limpiarArchivosPrevios). Hace lo mismo que
+     * CsvSchedulesPorCorrida.copiarRegistrosNegociacion, que es privado y se
+     * deja sin tocar.
+     */
+    private static void copiarRegistrosCrudos(File destino) {
+        if (!destino.exists() && !destino.mkdirs()) {
+            System.err.println("[CierrePlanInicial] no se pudo crear " + destino);
+            return;
+        }
+        String prefijo = ParametrosConfiguracion.prefijoArchivos();
+        for (String sufijo : new String[]{"messages.csv", "negotiations.csv", "schedules.csv"}) {
+            File origen = new File(prefijo + sufijo);
+            if (!origen.exists()) continue;
+            try {
+                java.nio.file.Files.copy(origen.toPath(), new File(destino, origen.getName()).toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (Exception e) {
+                System.err.println("[CierrePlanInicial] no se pudo copiar " + origen.getName() + ": " + e);
+            }
+        }
+        System.out.println("[CierrePlanInicial] registros crudos copiados a " + destino.getPath());
     }
 
     private static void mostrarDialogo(File dir, String motivo, EstadisticasPlanInicial.Resultado r, String error) {
@@ -104,6 +133,9 @@ public final class CierrePlanInicial {
         s.append("\nResultados en: ").append(dir.getAbsolutePath());
         System.out.println("[CierrePlanInicial] " + s.toString().replace('\n', ' '));
 
+        // Modo sin dialogo (-Dtds.sinDialogo=true, lo usa correr_lote.py): el
+        // resumen queda solo en la consola y se apaga sin esperar un clic.
+        if (ConfiguracionCorrida.sinDialogo()) return;
         String[] opciones = {"Abrir carpeta de resultados", "Cerrar"};
         int op;
         try {

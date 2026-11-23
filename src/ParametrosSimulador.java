@@ -15,7 +15,8 @@ public class ParametrosSimulador {
      *   "mediano_baseline_capa1"
      *   "grande_baseline_capa1"
      */
-    public static final String ETIQUETA_ESCENARIO = "grande_F1_COMPLETE";
+    // Valor POR DEFECTO; se puede entregar con -Dtds.etiqueta (ver ConfiguracionCorrida).
+    public static final String ETIQUETA_ESCENARIO = ConfiguracionCorrida.etiqueta("grande_F1_COMPLETE");
 
     /**
      * Switch maestro de incertidumbre.
@@ -206,7 +207,9 @@ public class ParametrosSimulador {
      * camiones cada negociacion tarda mas. 90 minutos deja margen para el
      * grande; el tope solo debe actuar si algo quedo realmente colgado.
      */
-    public static final long TOPE_NEGOCIACION_INICIAL_MS = 5_400_000L; // 90 min
+    // 90 min POR DEFECTO; -Dtds.topeNegociacionMin=<min|null> lo cambia (null = sin
+    // tope, vale ConfiguracionCorrida.SIN_TOPE). Ver ConfiguracionCorrida.
+    public static final long TOPE_NEGOCIACION_INICIAL_MS = ConfiguracionCorrida.topeNegociacionMs(5_400_000L);
 
     /**
      * Terminar la corrida apenas se genera el schedule inicial (nov-2026).

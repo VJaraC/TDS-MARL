@@ -94,7 +94,13 @@ public class InicializadorSimulador {
             // Ventana en el EDT.
             javax.swing.SwingUtilities.invokeLater(() -> {
                 VentanaSimulacion v = new VentanaSimulacion(grafoMina);
-                v.setVisible(true);
+                // -Dtds.sinVentana=true: la ventana existe (su reloj detecta el fin
+                // de la negociacion) pero no se muestra la mina.
+                if (ConfiguracionCorrida.sinVentana()) {
+                    System.out.println("[sim] ventana de la simulacion oculta (-Dtds.sinVentana=true)");
+                } else {
+                    v.setVisible(true);
+                }
                 System.out.println("[sim] ventana abierta. escenario=\""
                     + ParametrosSimulador.ETIQUETA_ESCENARIO + "\"");
                 // Capturador de snapshots: periodico + por evento. Si la ventana

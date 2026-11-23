@@ -1,0 +1,10 @@
+{
+  "tiempo_maximo_por_corrida_min": 360,
+  "tope_negociacion_min": null,
+  "nucleos_cpu": null,
+  "configuraciones": [
+    {"nombre": "base",         "escenario": "pequeno", "repeticiones": 10},
+    {"nombre": "deadline1000", "escenario": "pequeno", "repeticiones": 10, "deadline_ms": 1000},
+    {"nombre": "deadline8000", "escenario": "pequeno", "repeticiones": 10, "deadline_ms": 8000}
+  ]
+}

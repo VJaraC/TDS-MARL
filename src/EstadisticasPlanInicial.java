@@ -139,7 +139,13 @@ public final class EstadisticasPlanInicial {
         c.put("usar_plan_inicial_fijo", ParametrosSimulador.USAR_PLAN_INICIAL_FIJO);
         c.put("metodo_rescheduling", ParametrosSimulador.METODO_RESCHEDULING.name());
         c.put("terminar_tras_plan_inicial", ParametrosSimulador.TERMINAR_TRAS_PLAN_INICIAL);
-        c.put("tope_negociacion_inicial_ms", ParametrosSimulador.TOPE_NEGOCIACION_INICIAL_MS);
+        long tope = ParametrosSimulador.TOPE_NEGOCIACION_INICIAL_MS;
+        boolean sinTope = tope == ConfiguracionCorrida.SIN_TOPE;
+        c.put("tope_negociacion_inicial_ms", sinTope ? null : (Object) tope);
+        c.put("tope_negociacion_min", sinTope ? null : (Object) red(tope / 60_000.0));
+        c.put("origen_parametros", ConfiguracionCorrida.origen());
+        c.put("sin_dialogo", ConfiguracionCorrida.sinDialogo());
+        c.put("sin_ventana", ConfiguracionCorrida.sinVentana());
         c.put("java_version", System.getProperty("java.version"));
         String commit = git("rev-parse", "HEAD");
         c.put("git_commit", commit == null ? null : commit.trim());
@@ -221,6 +227,7 @@ public final class EstadisticasPlanInicial {
         out.put("toneladas_descargadas_en_turno", red(tonDescargadas));
         out.put("ciclos_planificados", ciclosTotal);
         out.put("ciclos_planificados_en_turno", ciclosTurno);
+        out.put("plan_vacio", ciclosTotal == 0);
         out.put("camiones_con_trabajo", conTrabajo.size());
         out.put("flota_total", flota);
         out.put("pct_flota_con_trabajo", red(flota == 0 ? 0 : 100.0 * conTrabajo.size() / flota));
@@ -452,7 +459,7 @@ public final class EstadisticasPlanInicial {
                     if (n == 0 && camiones.contains(agente)) { n = 1; sendsSinReceptores++; }
                     else if (n == 0) sendsSinReceptoresPala++;
                     entregas += n;
-                    entregasPorTipo.merge(perf, (long) n, Long::sum);
+                    if (n > 0) entregasPorTipo.merge(perf, (long) n, Long::sum);
                 } else if ("RECEIVE".equals(accion)) {
                     receives++;
                 } else if (esDescarga && accion.startsWith("AGREE descarga") && "AGREE".equals(perf)) {
@@ -503,6 +510,9 @@ public final class EstadisticasPlanInicial {
         l.add(valida ? "Corrida VALIDA (la negociacion inicial termino con todas las palas con el turno lleno)."
                 : "CORRIDA NO VALIDA: la negociacion termino por '" + m.get("motivo_fin_negociacion")
                   + "', no por 'negociacion_completa'. No comparar con las demas.");
+        if (Boolean.TRUE.equals(m.get("plan_vacio"))) {
+            l.add("PLAN VACIO: ninguna negociacion tuvo ganador (ningun camion recibio una carga).");
+        }
         l.add("");
         l.add("PRODUCCION PLANIFICADA");
         l.add(String.format(Locale.ROOT, "  Toneladas planificadas (todas las cargas):      %s t", m.get("toneladas_planificadas")));
@@ -563,8 +573,9 @@ public final class EstadisticasPlanInicial {
     // ── corridas/resumen_corridas.csv ──────────────────────────────────────
 
     private static final String[] COLUMNAS_CFG = {"etiqueta", "fecha_hora", "escenario", "palas", "camiones",
-            "destinos", "deadline_ms", "usar_plan_inicial_fijo", "metodo_rescheduling", "git_commit", "git_sucio"};
-    private static final String[] COLUMNAS_RES = {"motivo_fin_negociacion", "corrida_valida",
+            "destinos", "deadline_ms", "tope_negociacion_min", "usar_plan_inicial_fijo", "metodo_rescheduling",
+            "git_commit", "git_sucio"};
+    private static final String[] COLUMNAS_RES = {"motivo_fin_negociacion", "corrida_valida", "plan_vacio",
             "toneladas_planificadas", "toneladas_planificadas_en_turno", "toneladas_descargadas_en_turno",
             "ciclos_planificados", "ciclos_planificados_en_turno", "camiones_con_trabajo", "flota_total",
             "pct_flota_con_trabajo", "uso_promedio_palas_pct", "solapes_total", "minutos_solapados_total",
@@ -576,19 +587,48 @@ public final class EstadisticasPlanInicial {
             throws IOException {
         File dir = f.getParentFile();
         if (dir != null && !dir.exists() && !dir.mkdirs()) throw new IOException("no se pudo crear " + dir);
+        List<String> cab = new ArrayList<>();
+        Collections.addAll(cab, COLUMNAS_CFG);
+        Collections.addAll(cab, COLUMNAS_RES);
+        actualizarCabecera(f, cab);
         boolean nuevo = !f.exists();
         try (PrintWriter w = new PrintWriter(new OutputStreamWriter(new FileOutputStream(f, true), StandardCharsets.UTF_8))) {
-            if (nuevo) {
-                List<String> cab = new ArrayList<>();
-                Collections.addAll(cab, COLUMNAS_CFG);
-                Collections.addAll(cab, COLUMNAS_RES);
-                w.println(String.join(",", cab));
-            }
+            if (nuevo) w.println(String.join(",", cab));
             List<String> fila = new ArrayList<>();
             for (String k : COLUMNAS_CFG) fila.add(celda(cfg.get(k)));
             for (String k : COLUMNAS_RES) fila.add(celda(res.get(k)));
             w.println(String.join(",", fila));
         }
+    }
+
+    /**
+     * Si resumen_corridas.csv tiene un encabezado de una version anterior (con
+     * menos columnas), lo reescribe con el encabezado actual: cada fila vieja
+     * conserva sus valores por nombre de columna y las columnas nuevas quedan
+     * vacias. No se pierde ningun dato.
+     */
+    private static void actualizarCabecera(File f, List<String> cab) throws IOException {
+        if (!f.exists()) return;
+        List<String> lineas = new ArrayList<>();
+        try (BufferedReader r = lector(f)) {
+            String l;
+            while ((l = r.readLine()) != null) if (!l.trim().isEmpty()) lineas.add(l);
+        }
+        if (lineas.isEmpty() || lineas.get(0).equals(String.join(",", cab))) return;
+        String[] vieja = lineas.get(0).split(",", -1);
+        List<String> nuevas = new ArrayList<>();
+        nuevas.add(String.join(",", cab));
+        for (int i = 1; i < lineas.size(); i++) {
+            String[] c = lineas.get(i).split(",", -1);
+            Map<String, String> m = new HashMap<>();
+            for (int j = 0; j < vieja.length && j < c.length; j++) m.put(vieja[j], c[j]);
+            List<String> fila = new ArrayList<>();
+            for (String k : cab) fila.add(m.getOrDefault(k, ""));
+            nuevas.add(String.join(",", fila));
+        }
+        escribir(f, nuevas);
+        System.out.println("[EstadisticasPlanInicial] " + f.getPath() + ": encabezado actualizado a la version actual"
+                + " (columnas nuevas vacias en las filas anteriores)");
     }
 
     private static String celda(Object v) {

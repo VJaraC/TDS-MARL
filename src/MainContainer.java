@@ -25,6 +25,9 @@ public class MainContainer {
 
     public static void main(String[] args) {
 
+    	// Parametros entregados al lanzar (-Dtds.*): si alguno es invalido, no arranca.
+    	ConfiguracionCorrida.validar();
+
     	// Si la corrida termina tras el plan inicial, la etiqueta no puede estar usada.
     	CierrePlanInicial.verificarEtiquetaLibre();
 
